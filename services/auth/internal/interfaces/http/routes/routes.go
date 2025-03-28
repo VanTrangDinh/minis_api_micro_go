@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
-	"minisapi/services/auth/configs"
+	"minisapi/services/auth/internal/configs"
 	"minisapi/services/auth/internal/domain/service"
 	"minisapi/services/auth/internal/domain/usecase"
 	"minisapi/services/auth/internal/infrastructure/jwt"
@@ -59,7 +58,7 @@ func NewServer(cfg *configs.Config, db *gorm.DB) *Server {
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(authService)
 	rateLimiter := middleware.NewIPRateLimiter(rate.Limit(10), 100)
-	
+
 	log, err := logger.NewLogger("auth-service")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize logger: %v", err))
@@ -136,8 +135,6 @@ func NewServer(cfg *configs.Config, db *gorm.DB) *Server {
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%s", cfg.Server.Port),
 		Handler:        router,
-		ReadTimeout:    time.Duration(cfg.Server.ReadTimeout) * time.Second,
-		WriteTimeout:   time.Duration(cfg.Server.WriteTimeout) * time.Second,
 		MaxHeaderBytes: 1 << 20, // 1MB
 	}
 

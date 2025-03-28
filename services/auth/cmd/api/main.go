@@ -10,14 +10,15 @@ import (
 	"time"
 
 	"minisapi/services/auth/internal/configs"
+	"minisapi/services/auth/internal/domain/service"
+	"minisapi/services/auth/internal/domain/usecase"
 	"minisapi/services/auth/internal/infrastructure/database"
 	"minisapi/services/auth/internal/infrastructure/jwt"
 	"minisapi/services/auth/internal/infrastructure/redis"
+	"minisapi/services/auth/internal/infrastructure/repository"
 	"minisapi/services/auth/internal/interfaces/http/handler"
 	"minisapi/services/auth/internal/interfaces/http/routes"
 	"minisapi/services/auth/internal/pkg/logger"
-	"minisapi/services/auth/internal/repository"
-	"minisapi/services/auth/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,25 +31,34 @@ func main() {
 	}
 
 	// Initialize logger
-	logger, err := logger.NewLogger(cfg.Log.Level)
+	log, err := logger.NewLogger(cfg.Log.Level)
 	if err != nil {
-		log.Fatalf("Failed to initialize logger: %v", err)
+		log.Fatal(context.Background(), "Failed to initialize logger", logger.LogFields{
+			Error: err,
+		})
 	}
-	defer logger.Sync()
+	defer log.Sync()
 
 	// Initialize database
 	db, err := database.NewPostgresDB(cfg.Database)
 	if err != nil {
-		logger.Fatal(context.Background(), "Failed to connect to database", logger.LogFields{
+		log.Fatal(context.Background(), "Failed to connect to database", logger.LogFields{
 			Error: err,
 		})
 	}
-	defer db.Close()
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal(context.Background(), "Failed to get database instance", logger.LogFields{
+			Error: err,
+		})
+	}
+	defer sqlDB.Close()
 
 	// Initialize Redis
 	redisClient, err := redis.NewRedisClient(cfg.Redis)
 	if err != nil {
-		logger.Fatal(context.Background(), "Failed to connect to Redis", logger.LogFields{
+		log.Fatal(context.Background(), "Failed to connect to Redis", logger.LogFields{
 			Error: err,
 		})
 	}
@@ -62,23 +72,26 @@ func main() {
 	sessionRepo := repository.NewSessionRepository(db)
 
 	// Initialize JWT manager
-	jwtManager := jwt.NewJWTManager(cfg.JWT)
+	jwtManager, err := jwt.NewJWTManager(cfg.JWT)
+	if err != nil {
+		log.Fatal(context.Background(), "Failed to initialize JWT manager", logger.LogFields{
+			Error: err,
+		})
+	}
 
 	// Initialize use cases
+	authService := service.NewAuthService(jwtManager)
 	authUseCase := usecase.NewAuthUseCase(
 		userRepo,
-		roleRepo,
-		permissionRepo,
 		tokenRepo,
 		sessionRepo,
-		jwtManager,
-		redisClient,
+		authService,
 	)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authUseCase)
-	roleHandler := handler.NewRoleHandler(authUseCase)
-	permissionHandler := handler.NewPermissionHandler(authUseCase)
+	roleHandler := handler.NewRoleHandler(roleRepo, permissionRepo)
+	permissionHandler := handler.NewPermissionHandler(permissionRepo)
 	healthHandler := handler.NewHealthHandler(db)
 
 	// Initialize router
@@ -91,7 +104,7 @@ func main() {
 		roleHandler,
 		permissionHandler,
 		healthHandler,
-		logger,
+		log,
 	)
 
 	// Create server
@@ -102,11 +115,11 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		logger.Info(context.Background(), "Starting server", logger.LogFields{
+		log.Info(context.Background(), "Starting server", logger.LogFields{
 			Path: cfg.Server.Port,
 		})
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal(context.Background(), "Failed to start server", logger.LogFields{
+			log.Fatal(context.Background(), "Failed to start server", logger.LogFields{
 				Error: err,
 			})
 		}
@@ -118,15 +131,15 @@ func main() {
 	<-quit
 
 	// Graceful shutdown
-	logger.Info(context.Background(), "Shutting down server", logger.LogFields{})
+	log.Info(context.Background(), "Shutting down server", logger.LogFields{})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error(context.Background(), "Server forced to shutdown", logger.LogFields{
+		log.Error(context.Background(), "Server forced to shutdown", logger.LogFields{
 			Error: err,
 		})
 	}
 
-	logger.Info(context.Background(), "Server exiting", logger.LogFields{})
+	log.Info(context.Background(), "Server exiting", logger.LogFields{})
 }

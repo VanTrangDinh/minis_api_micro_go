@@ -40,7 +40,12 @@ func (u *roleUseCase) List(ctx context.Context) ([]*entity.Role, error) {
 	if err != nil {
 		return nil, err
 	}
-	return roles, nil
+
+	result := make([]*entity.Role, len(roles))
+	for i := range roles {
+		result[i] = &roles[i]
+	}
+	return result, nil
 }
 
 func (u *roleUseCase) Update(ctx context.Context, role *entity.Role) error {

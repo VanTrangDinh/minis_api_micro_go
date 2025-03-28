@@ -2,7 +2,7 @@ package jwt
 
 import (
 	"fmt"
-	"minisapi/services/auth/configs"
+	"minisapi/services/auth/internal/configs"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -15,10 +15,15 @@ type JWTManager struct {
 }
 
 func NewJWTManager(cfg configs.JWTConfig) (*JWTManager, error) {
+	expiration, err := time.ParseDuration(cfg.Expiration)
+	if err != nil {
+		return nil, fmt.Errorf("invalid expiration duration: %v", err)
+	}
+
 	return &JWTManager{
-		secretKey:       []byte(cfg.SecretKey),
-		accessTokenTTL:  cfg.AccessTokenTTL,
-		refreshTokenTTL: cfg.RefreshTokenTTL,
+		secretKey:       []byte(cfg.Secret),
+		accessTokenTTL:  expiration,
+		refreshTokenTTL: expiration * 2,
 	}, nil
 }
 

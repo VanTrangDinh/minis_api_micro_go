@@ -25,10 +25,18 @@ func (r *permissionRepository) FindByID(id uint) (*entity.Permission, error) {
 	return &permission, err
 }
 
-func (r *permissionRepository) List() ([]*entity.Permission, error) {
-	var permissions []*entity.Permission
-	err := r.db.Find(&permissions).Error
-	return permissions, err
+func (r *permissionRepository) List(page, limit int) ([]entity.Permission, int64, error) {
+	var permissions []entity.Permission
+	var total int64
+
+	err := r.db.Model(&entity.Permission{}).Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * limit
+	err = r.db.Offset(offset).Limit(limit).Find(&permissions).Error
+	return permissions, total, err
 }
 
 func (r *permissionRepository) Update(permission *entity.Permission) error {
@@ -74,8 +82,22 @@ func (r *permissionRepository) FindByRole(roleID uint) ([]entity.Permission, err
 	err := r.db.Joins("JOIN role_permissions ON permissions.id = role_permissions.permission_id").
 		Where("role_permissions.role_id = ?", roleID).
 		Find(&permissions).Error
-	if err != nil {
-		return nil, err
-	}
-	return permissions, nil
+	return permissions, err
+}
+
+func (r *permissionRepository) FindByUser(userID uint) ([]entity.Permission, error) {
+	var permissions []entity.Permission
+	err := r.db.Joins("JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+		Joins("JOIN user_roles ON role_permissions.role_id = user_roles.role_id").
+		Where("user_roles.user_id = ?", userID).
+		Find(&permissions).Error
+	return permissions, err
+}
+
+func (r *permissionRepository) UpdateStatus(id uint, status entity.PermissionStatus) error {
+	return r.db.Model(&entity.Permission{}).Where("id = ?", id).Update("status", status).Error
+}
+
+func (r *permissionRepository) UpdateDescription(id uint, description string) error {
+	return r.db.Model(&entity.Permission{}).Where("id = ?", id).Update("description", description).Error
 }

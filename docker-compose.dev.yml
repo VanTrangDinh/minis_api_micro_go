@@ -4,16 +4,22 @@ services:
   auth:
     build:
       context: .
-      dockerfile: services/auth/Dockerfile
+      dockerfile: services/auth/Dockerfile.dev
     ports:
       - "8081:8081"
     env_file:
       - services/auth/.env
+    volumes:
+      - ./services/auth:/app
+      - auth_go_mod:/go/pkg/mod
     depends_on:
       - postgres
       - redis
     networks:
       - app-network
+    environment:
+      - GIN_MODE=debug
+      - GO_ENV=development
 
   gateway:
     build:
@@ -53,6 +59,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  auth_go_mod:
 
 networks:
   app-network:

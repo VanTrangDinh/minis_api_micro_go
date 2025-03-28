@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	"minisapi/services/auth/configs"
 	_ "minisapi/services/auth/docs"
+	"minisapi/services/auth/internal/configs"
 	"minisapi/services/auth/internal/infrastructure/database"
 	"minisapi/services/auth/internal/interfaces/http/routes"
 
@@ -73,12 +73,6 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 	log.Printf("Successfully ran migrations")
-
-	// Seed initial data
-	if err := configs.SeedData(db); err != nil {
-		log.Fatalf("Failed to seed data: %v", err)
-	}
-	log.Printf("Successfully seeded initial data")
 
 	// Initialize HTTP server
 	server := routes.NewServer(cfg, db)

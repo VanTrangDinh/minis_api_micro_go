@@ -3,16 +3,14 @@ package redis
 import (
 	"context"
 	"fmt"
-	"minisapi/services/auth/configs"
+	"minisapi/services/auth/internal/configs"
 
 	"github.com/redis/go-redis/v9"
 )
 
 func NewRedisClient(cfg configs.RedisConfig) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
-		Password: cfg.Password,
-		DB:       cfg.DB,
+		Addr: fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
 	})
 
 	// Test connection

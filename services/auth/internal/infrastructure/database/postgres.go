@@ -2,8 +2,9 @@ package database
 
 import (
 	"fmt"
-	"minisapi/services/auth/configs"
+	"minisapi/services/auth/internal/configs"
 	"minisapi/services/auth/internal/domain/entity"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -17,6 +18,16 @@ func NewPostgresDB(cfg configs.DatabaseConfig) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get database instance: %v", err)
+	}
+
+	// Set connection pool settings
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	// Auto migrate schemas
 	err = db.AutoMigrate(

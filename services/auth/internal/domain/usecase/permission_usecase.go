@@ -29,11 +29,21 @@ func (u *permissionUseCase) Create(ctx context.Context, permission *entity.Permi
 }
 
 func (u *permissionUseCase) GetByID(ctx context.Context, id uint) (*entity.Permission, error) {
-	return u.permissionRepo.GetByID(id)
+	return u.permissionRepo.FindByID(id)
 }
 
 func (u *permissionUseCase) List(ctx context.Context) ([]*entity.Permission, error) {
-	return u.permissionRepo.List()
+	permissions, _, err := u.permissionRepo.List(1, 100) // Default page 1, limit 100
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert []entity.Permission to []*entity.Permission
+	result := make([]*entity.Permission, len(permissions))
+	for i := range permissions {
+		result[i] = &permissions[i]
+	}
+	return result, nil
 }
 
 func (u *permissionUseCase) Update(ctx context.Context, permission *entity.Permission) error {
@@ -42,4 +52,4 @@ func (u *permissionUseCase) Update(ctx context.Context, permission *entity.Permi
 
 func (u *permissionUseCase) Delete(ctx context.Context, id uint) error {
 	return u.permissionRepo.Delete(id)
-} 
+}
